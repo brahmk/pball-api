@@ -11,7 +11,9 @@ export function getUsers(req, res) {
     .then((snapshot) => {
       const userArray = snapshot.docs.map((doc) => {
         let user = doc.data();
-        user.id = doc.id;
+        user.email = undefined;
+        user.password = undefined;
+
         return user;
       });
       res.send(userArray);
@@ -22,53 +24,90 @@ export function getUsers(req, res) {
 }
 
 export function postNewUser(req, res) {
-  //email .toLowerCase()
   if (!req.body) {
     res.status(401).send("Invalid request");
     return;
   }
   const db = connectDb();
   db.collection("users")
-    .add(req.body)
+    .add(req.body.newUser)
     .then((doc) => {
-      res.send("user added" + doc.id);
+      res.send("user added! " + doc.id);
     })
     .catch((err) => {
       res.status(500).send(err);
     });
 }
 
-export async function login(req, res) {
+export function login(req, res) {
   const { email, password } = req.body;
+  console.log(req.body);
   if (!req.body) {
-    res.status(401).send("Invalid request");
+    res.status(401).send("invalid request");
     return;
   }
   const db = connectDb();
-  const userCol = await db
+
+  const userCol = db
     .collection("users")
     .where("email", "==", email.toLowerCase())
     .where("password", "==", password)
-    .get();
-  const user = userCol.docs[0].data();
-  //is user id sent back in data?  or do I need to extract it w doc.id
-  if (!user) {
-    res
-      .status(400)
-      .send({ error: "Invalid Email or Password, please try again." });
-    return;
-  }
-  user.password = undefined;
-  const token = jwt.sign(user, mySecretKey, { expiresIn: "90d" });
-  res.send({ token });
+    .get()
+    .then((userCol) => {
+      if (userCol.docs.length === 0) {
+        res
+          .status(400)
+          .send({ error: "Invalid Email or Password, please try again." });
+        return;
+      }
+      const user = userCol.docs[0].data();
+      user.id = userCol.docs[0].id;
+      user.password = undefined;
+
+      const newToken = jwt.sign(user, mySecretKey, { expiresIn: "90d" });
+      user.token = newToken;
+
+      res.send({ user }); //change to send user object with token, id. use id to patch atCourt
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
 }
 
-export async function checkin(req, res) {
+export function checkIn(req, res) {
+  const id = req.body.id;
   if (!req.body) {
     res.status(401).send("Invalid request");
     return;
   }
 
   const db = connectDb();
-  const userCol = await db.collection("users").post();
+  db.collection("users")
+    .doc(id)
+    .update({ atCourt: true })
+    .then(() => {
+      res.send("Checked in!");
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
+}
+
+export function checkOut(req, res) {
+  const id = req.body.id;
+  if (!req.body) {
+    res.status(401).send("Invalid request");
+    return;
+  }
+
+  const db = connectDb();
+  db.collection("users")
+    .doc(id)
+    .update({ atCourt: false })
+    .then(() => {
+      res.send("Checked out!");
+    })
+    .catch((err) => {
+      res.status(500).send(err);
+    });
 }
