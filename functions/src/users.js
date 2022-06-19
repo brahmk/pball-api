@@ -86,7 +86,8 @@ export function checkIn(req, res) {
     .doc(id)
     .update({ atCourt: true })
     .then(() => {
-      res.send("Checked in!");
+      getUsers(req, res);
+      return;
     })
     .catch((err) => {
       res.status(500).send(err);
@@ -105,7 +106,8 @@ export function checkOut(req, res) {
     .doc(id)
     .update({ atCourt: false })
     .then(() => {
-      res.send("Checked out!");
+      getUsers(req, res);
+      return;
     })
     .catch((err) => {
       res.status(500).send(err);
